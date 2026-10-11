@@ -60,16 +60,25 @@ namespace WJMAXOnline
 			}
 			Disconnect();
 			net = new Net();
-			try
+			// 중계 서버가 있으면 내 PC 포트는 열지 않는다 (중계에 실패했을 때만 직접 연결로 연다)
+			relayUrl = Relay.Url();
+			bool tcp = relayUrl == null;
+#if DEV
+			tcp = true; // 개발용 봇은 TCP 로 붙음
+#endif
+			if (tcp)
 			{
-				net.Host(port);
-			}
-			catch (Exception e)
-			{
-				net = null;
-				Status("방 만들기 실패: " + e.Message, Ui.Red, 8f);
-				PlaySe(AudioManager.SE.error);
-				return;
+				try
+				{
+					net.Host(port);
+				}
+				catch (Exception e)
+				{
+					net = null;
+					Status("방 만들기 실패: " + e.Message, Ui.Red, 8f);
+					PlaySe(AudioManager.SE.error);
+					return;
+				}
 			}
 			PlayerPrefs.SetString("WJONLINE_PORT", portText);
 			isHost = true;
@@ -92,7 +101,6 @@ namespace WJMAXOnline
 			reachNote = "";
 			OnJoinedRoom();
 			// relay.txt 에 중계 서버가 있으면 그걸로 (포트 개방 필요 없음). 안 되면 예전처럼 내 PC 직접 연결
-			relayUrl = Relay.Url();
 			roomPublic = createPublic;
 			pubSent = "";
 			if (relayUrl != null)
@@ -190,6 +198,18 @@ namespace WJMAXOnline
 			case "__RELAYFAIL":
 				AddChat("|중계 서버에 연결하지 못했어요" + ((p.Length > 1) ? (" (" + p[1] + ")") : "") + ". 내 PC 직접 연결로 바꿀게요");
 				int.TryParse(portText, out var port);
+				try
+				{
+					if (!net.Hosting)
+					{
+						net.Host(port);
+					}
+				}
+				catch (Exception e)
+				{
+					AddChat("|내 PC 직접 연결도 열지 못했어요 (" + e.Message + ")");
+					break;
+				}
 				FindReach(port);
 				break;
 			}
@@ -216,9 +236,13 @@ namespace WJMAXOnline
 			Disconnect();
 			joinCode = RoomCode.Clean(codeText);
 			// 게임을 켜 둔 동안은 같은 토큰: 나갔다 다시 들어와도 방장이 같은 사람으로 알아본다 (끊김 자리가 남아 있으면 그 자리로)
-			if (myToken.Length == 0)
+			if (mySecret.Length == 0)
 			{
-				myToken = Guid.NewGuid().ToString("N").Substring(0, 16).ToUpperInvariant();
+				mySecret = Guid.NewGuid().ToString("N");
+			}
+			using (System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+			{
+				myToken = BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(mySecret + "|" + joinCode))).Replace("-", "").Substring(0, 16);
 			}
 			hostBye = false;
 			gaveUp = false;
@@ -349,7 +373,8 @@ namespace WJMAXOnline
 			if (m.line == "__JOIN")
 			{
 				joinFails.TryGetValue(from.remoteIp, out var fails);
-				if (fails >= MAX_FAILS)
+				// 같은 IP 가 코드를 계속 틀렸거나, 연결이 너무 많으면(인사 안 한 연결 쌓기) 거절
+				if (fails >= MAX_FAILS || net.clients.Count >= 32)
 				{
 					from.Close();
 				}
@@ -365,6 +390,18 @@ namespace WJMAXOnline
 				{
 					PlayerLost(from.id);
 				}
+				return;
+			}
+			// 도배 막기: 5초에 300줄 넘게 보내면 끊는다 (정상 플레이는 1초에 10줄 정도)
+			int tick = Environment.TickCount;
+			if (tick - from.rateAt > 5000)
+			{
+				from.rateAt = tick;
+				from.rateN = 0;
+			}
+			if (++from.rateN > 300)
+			{
+				from.Close();
 				return;
 			}
 			string[] p = m.line.Split('|');
@@ -393,8 +430,10 @@ namespace WJMAXOnline
 				SetLoaded(id);
 				break;
 			case "CHAT":
-				if (p.Length >= 3 && CleanText(p[2], 60).Length > 0)
+				// 채팅은 0.5초에 한 번까지 (도배 막기)
+				if (p.Length >= 3 && CleanText(p[2], 60).Length > 0 && tick - from.chatAt > 500)
 				{
+					from.chatAt = tick;
 					string text = CleanText(p[2], 60);
 					AddChat(pl.name + "|" + text);
 					net.Broadcast("CHAT|" + id + "|" + text);
@@ -875,6 +914,8 @@ namespace WJMAXOnline
 
 		private string myToken = "";
 
+		private string mySecret = ""; // 게임 켜 둔 동안만 (방 토큰 만드는 데만 씀, 아무에게도 안 보냄)
+
 		private int myPing;
 
 		private float pingWaitSince = -1f;
@@ -922,7 +963,8 @@ namespace WJMAXOnline
 				{
 					foreach (Conn c in net.clients.ToArray())
 					{
-						if (c.id >= 0 && Environment.TickCount - c.lastRecv > HOST_IDLE_MS)
+						// 인사(HELLO) 안 한 연결은 10초, 들어온 사람은 20초 동안 아무것도 안 오면 끊음
+						if (Environment.TickCount - c.lastRecv > ((c.id >= 0) ? HOST_IDLE_MS : 10000))
 						{
 							c.Close();
 						}

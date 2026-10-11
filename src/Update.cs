@@ -93,13 +93,21 @@ namespace WJMAXOnline
 				File.Delete(tmp);
 				throw new Exception("not WJMAXOnline");
 			}
-			File.Copy(tmp, dst, true);
 			string copy = Path.Combine(root, "OnlineMod", "WJMAXOnline.dll");
 			if (File.Exists(copy))
 			{
 				File.Copy(tmp, copy, true);
 			}
-			File.Delete(tmp);
+			// 한 번에 바꿔치기 (복사 도중 게임이 꺼져도 반쪽짜리 DLL 이 남지 않게)
+			try
+			{
+				File.Replace(tmp, dst, null);
+			}
+			catch (Exception)
+			{
+				File.Copy(tmp, dst, true);
+				File.Delete(tmp);
+			}
 			ready = latest;
 			UnityEngine.Debug.Log("[WJMAXOnline] updated to build " + latest);
 		}

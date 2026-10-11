@@ -29,6 +29,9 @@ namespace WJMAXOnline
 		// 마지막으로 줄을 받은 시각 (Environment.TickCount). 응답 없는 연결 정리용
 		public volatile int lastRecv = Environment.TickCount;
 
+		// 방장: 도배 막기용 (5초 동안 받은 줄 수, 마지막 채팅 시각)
+		public int rateAt = Environment.TickCount, rateN, chatAt = Environment.TickCount - 10000;
+
 		private readonly TcpClient tcp;
 
 		private readonly StreamWriter writer;
@@ -206,6 +209,8 @@ namespace WJMAXOnline
 			m = default(Msg);
 			return false;
 		}
+
+		public bool Hosting => listener != null;
 
 		public void Host(int port)
 		{
