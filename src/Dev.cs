@@ -62,6 +62,57 @@ namespace WJMAXOnline
 			}
 		}
 
+		// 게임에 남아 있는 배치고사 데이터(Resources/Etc/PlacemenetBundle)를 dev\placedump.txt 로
+		private static void DevPlaceDump()
+		{
+			StringBuilder sb = new StringBuilder();
+			foreach (FieldInfo st in typeof(PlacementBundle).GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				sb.AppendLine("static " + st.Name + " = " + st.GetValue(null));
+			}
+			foreach (FieldInfo st in typeof(PlacementData).GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				sb.AppendLine("static PlacementData." + st.Name + " = " + st.GetValue(null));
+			}
+			UnityEngine.Object o = Resources.Load("Etc/PlacemenetBundle");
+			sb.AppendLine("bundle = " + (o == null ? "NULL" : o.GetType().Name));
+			if (o != null)
+			{
+				DumpObj(o, sb, 0);
+			}
+			File.WriteAllText(Path.Combine(DevDir, "placedump.txt"), sb.ToString());
+		}
+
+		private static void DumpObj(object o, StringBuilder sb, int depth)
+		{
+			foreach (FieldInfo fi in o.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				object v = fi.GetValue(o);
+				string pad = new string(' ', depth * 2);
+				if (v is Array arr)
+				{
+					sb.AppendLine(pad + fi.Name + " [" + arr.Length + "]");
+					int i = 0;
+					foreach (object e in arr)
+					{
+						sb.AppendLine(pad + "  #" + i++);
+						if (e != null && !(e is UnityEngine.Object) && !e.GetType().IsPrimitive && !(e is string) && !e.GetType().IsEnum)
+						{
+							DumpObj(e, sb, depth + 2);
+						}
+						else
+						{
+							sb.AppendLine(pad + "    " + e);
+						}
+					}
+				}
+				else
+				{
+					sb.AppendLine(pad + fi.Name + " = " + ((v is UnityEngine.Object uo) ? (uo == null ? "null" : uo.name) : v));
+				}
+			}
+		}
+
 		private static bool DevKey(KeyCode k)
 		{
 			return fakeKeys.Contains(k);
@@ -94,6 +145,44 @@ namespace WJMAXOnline
 			case "dump":
 				DevDump(arg);
 				break;
+			case "placedump":
+				DevPlaceDump();
+				break;
+			case "plres":
+			{
+				// 배치고사 곡 진행 중: 결과 화면 없이 이 정확도로 기록하고 시험장으로 (결과 화면을 거치면 실제 기록이 저장되므로)
+				pd.RecordStage(float.Parse(arg, IC));
+				plGotResult = true;
+				Singleton<Fader>.Instance.FadeOut(delegate
+				{
+					SceneLoader.LoadScene(SCENE.FreeStyle);
+				});
+				break;
+			}
+			case "plquit":
+				// 배치고사 곡 진행 중: 결과 없이 시험장으로 (중도 포기 · 게임 오버와 같음)
+				Singleton<Fader>.Instance.FadeOut(delegate
+				{
+					SceneLoader.LoadScene(SCENE.FreeStyle);
+				});
+				break;
+			case "plskip":
+			{
+				// 시험장: 앞 단계를 이 정확도로 채우고 n 단계로 건너뜀 (plskip 11 98.5)
+				string[] a2 = arg.Split(' ');
+				int to = int.Parse(a2[0]);
+				Array st = PlStages;
+				for (int i = 0; i < to && i < st.Length; i++)
+				{
+					object s0 = st.GetValue(i);
+					SV(s0, "rate", float.Parse(a2[1], IC));
+					st.SetValue(s0, i);
+				}
+				SV(pd, "stageIndex", to);
+				pd.UpdateBundle();
+				plSel = to;
+				break;
+			}
 			case "assets":
 				DevAssets();
 				break;
@@ -390,7 +479,7 @@ namespace WJMAXOnline
 				DevSelfTest();
 				break;
 			case "state":
-				File.WriteAllText(Path.Combine(DevDir, "state.txt"), $"scene={SceneLoader.Current} auto={(Singleton<Judgement>.Instance == null ? "-" : typeof(Judgement).GetField("isAutoPlay", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?.GetValue(Singleton<Judgement>.Instance))}/{fPlayMode.GetValue(BundlePackage.closet)} rating={MyRating} applied={batApplied}/{bat.no} ai={aiMatch} online={online} scr={scr} popup={popup} host={isHost} conn={connected} type={matchType} players={players.Count} code={roomCode} inMatch={inMatch} live={matchLive} ids={string.Join(",", matchIds)} released={released} bat={bat.phase}/{bat.round} {bat.pts[0]}:{bat.pts[1]} win={bat.winner} cur={cursor}/{list.Length} cat={listCat} key={GameValue.key} hostSel={hostSel} status={status} windows={string.Join(",", CInput.windowList.Select((GameObject w) => w ? w.name : "null"))} lister={(lister != null ? fIsInput.GetValue(lister) + "/" + fIsPlayGame.GetValue(lister) : "-")} focus={focused} t={Time.time} fading={Fader.isFading} chat={chatLog.Count} players=[{string.Join(";", players.Select((Player x) => x.id + ":" + x.name + ":" + x.diffMode + ":" + x.ready + ":" + x.phase + ":" + x.score + ":" + x.done))}] pingT={pingTimer} conns=[{(net == null ? "" : string.Join(";", net.clients.Select((Conn c) => c.id + ":" + c.cid + ":" + (Environment.TickCount - c.lastRecv) + ":" + c.closed)))}]");
+				File.WriteAllText(Path.Combine(DevDir, "state.txt"), $"scene={SceneLoader.Current} auto={(Singleton<Judgement>.Instance == null ? "-" : typeof(Judgement).GetField("isAutoPlay", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?.GetValue(Singleton<Judgement>.Instance))}/{fPlayMode.GetValue(BundlePackage.closet)} rating={MyRating} applied={batApplied}/{bat.no} ai={aiMatch} online={online} scr={scr} popup={popup} host={isHost} conn={connected} type={matchType} players={players.Count} code={roomCode} inMatch={inMatch} live={matchLive} ids={string.Join(",", matchIds)} released={released} bat={bat.phase}/{bat.round} {bat.pts[0]}:{bat.pts[1]} win={bat.winner} cur={cursor}/{list.Length} cat={listCat} key={GameValue.key} hostSel={hostSel} status={status} windows={string.Join(",", CInput.windowList.Select((GameObject w) => w ? w.name : "null"))} lister={(lister != null ? fIsInput.GetValue(lister) + "/" + fIsPlayGame.GetValue(lister) : "-")} focus={focused} t={Time.time} fading={Fader.isFading} chat={chatLog.Count} players=[{string.Join(";", players.Select((Player x) => x.id + ":" + x.name + ":" + x.diffMode + ":" + x.ready + ":" + x.phase + ":" + x.score + ":" + x.done))}] place={plPhase}:{(pd == null ? -9 : PlIndex)}:{(pd == null ? -1 : pd.RetryCount)}:{(pd == null ? 0 : pd.FinalPoint)}:{plPlaying}:{plGotResult} pingT={pingTimer} conns=[{(net == null ? "" : string.Join(";", net.clients.Select((Conn c) => c.id + ":" + c.cid + ":" + (Environment.TickCount - c.lastRecv) + ":" + c.closed)))}]");
 				break;
 			}
 		}

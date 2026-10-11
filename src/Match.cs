@@ -348,7 +348,7 @@ namespace WJMAXOnline
 				Send(df);
 				me.inRoom = false;
 			}
-			SetScr(Scr.Room);
+			SetScr((matchType == MT_PLACE) ? Scr.Place : Scr.Room);
 		}
 
 		// "왁굳+ Lv.13" (이번 곡 기준)
@@ -379,7 +379,7 @@ namespace WJMAXOnline
 				net?.server?.Send("ROOM|" + myId);
 			}
 			sentDiff = "";
-			SetScr(connected ? ((bat.phase != BAT_NONE) ? Scr.Battle : Scr.Room) : Scr.Lobby);
+			SetScr((matchType == MT_PLACE) ? Scr.Place : (connected ? ((bat.phase != BAT_NONE) ? Scr.Battle : Scr.Room) : Scr.Lobby));
 		}
 
 		private void RestoreAfterMatch()
@@ -457,7 +457,7 @@ namespace WJMAXOnline
 				judge = matchJudge,
 				ps = MP.Select((Player p) => p.Copy()).ToList()
 			};
-			if (lastFin != null)
+			if (lastFin != null && matchKind != MT_PLACE)
 			{
 				SaveHistory(lastMatch);
 			}

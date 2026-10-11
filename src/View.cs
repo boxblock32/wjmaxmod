@@ -150,16 +150,20 @@ namespace WJMAXOnline
 		{
 			VideoPlayer pv = (lister == null) ? null : (fPreviewVideo.GetValue(lister) as VideoPlayer);
 			AudioSource pa = (lister == null) ? null : (fPreviewAudio.GetValue(lister) as AudioSource);
-			bool lobbyMedia = show && (scr == Scr.Lobby || scr == Scr.Ladder || scr == Scr.History || (scr == Scr.Result && !connected) || (scr == Scr.Battle && (bat.phase == BAT_BAN || bat.phase == BAT_END || Roulette(out _, out _))));
+			bool lobbyMedia = show && (scr == Scr.Lobby || scr == Scr.Ladder || scr == Scr.History || scr == Scr.Place || (scr == Scr.Result && !connected) || (scr == Scr.Battle && (bat.phase == BAT_BAN || bat.phase == BAT_END || Roulette(out _, out _))));
 			if (videoLayer != null)
 			{
 				videoLayer.gameObject.SetActive(lobbyMedia);
 			}
 			if (lobbyMedia && bgVideo != null)
 			{
-				if (string.IsNullOrEmpty(bgVideo.url))
+				string want = (scr == Scr.Place) ? PlaceBgUrl : (themeVideo ?? (themeVideo = ThemeVideo()));
+				if (bgVideo.url != want)
 				{
-					bgVideo.url = ThemeVideo();
+					// 배치고사는 곡 미리듣기 소리도 (원래 시험장처럼). 로비 영상은 소리 없음
+					bgVideo.Stop();
+					bgVideo.audioOutputMode = (scr == Scr.Place) ? VideoAudioOutputMode.Direct : VideoAudioOutputMode.None;
+					bgVideo.url = want;
 					bgVideo.Play();
 				}
 				else if (!bgVideo.isPlaying)
@@ -193,6 +197,8 @@ namespace WJMAXOnline
 				previewRoot = "#replay";
 			}
 		}
+
+		private string themeVideo;
 
 		private string ThemeVideo()
 		{
@@ -245,6 +251,8 @@ namespace WJMAXOnline
 				return common + LadderSig();
 			case Scr.Result:
 				return common + "|" + (lastMatch?.title ?? "") + resultTaken;
+			case Scr.Place:
+				return common + PlaceSig();
 			default:
 				return common + "|" + histSel + "|" + history.Count;
 			}
@@ -288,7 +296,7 @@ namespace WJMAXOnline
 		private void RebuildScreen()
 		{
 			// 화면 단계가 바뀌면 등장 연출을 처음부터 (팝업·채팅 같은 건 단계로 치지 않음)
-			string ek = scr + "|" + Spectating + "|" + ((scr == Scr.Battle) ? (bat.no + ":" + bat.phase + ":" + bat.round + ":" + Roulette(out _, out _)) : "") + "|" + ((scr == Scr.Ladder) ? ladState.ToString() : "") + "|" + ((scr == Scr.Room) ? matchType.ToString() : "");
+			string ek = scr + "|" + Spectating + "|" + ((scr == Scr.Battle) ? (bat.no + ":" + bat.phase + ":" + bat.round + ":" + Roulette(out _, out _)) : "") + "|" + ((scr == Scr.Ladder) ? ladState.ToString() : "") + "|" + ((scr == Scr.Room) ? matchType.ToString() : "") + ((scr == Scr.Place) ? plPhase.ToString() : "");
 			if (ek != epochKey)
 			{
 				epochKey = ek;
@@ -323,6 +331,9 @@ namespace WJMAXOnline
 				break;
 			case Scr.History:
 				BuildHistory();
+				break;
+			case Scr.Place:
+				BuildPlace();
 				break;
 			}
 			StatusPill();
@@ -465,12 +476,12 @@ namespace WJMAXOnline
 		}
 
 		// 디맥 왼쪽 위 로고: 원 + ONLINE / 부제
-		private void Logo(string sub)
+		private void Logo(string sub, string main = "ONLINE")
 		{
 			Image ring = Ui.Img(body, "logoRing", new Vector2(54f, 22f), new Vector2(46f, 46f), Color.white);
 			ring.sprite = Ui.Ring();
 			Ui.In(ring, Ui.At(0f), 0f, 0f, 0.3f, 0.45f, back: true);
-			Ui.In(Ui.VTxt(body, "logo1", new Vector2(112f, 16f), new Vector2(400f, 34f), "ONLINE", 30f, Color.white, TextAlignmentOptions.TopLeft), Ui.At(0.05f), -30f);
+			Ui.In(Ui.VTxt(body, "logo1", new Vector2(112f, 16f), new Vector2(400f, 34f), main, 30f, Color.white, TextAlignmentOptions.TopLeft), Ui.At(0.05f), -30f);
 			Ui.In(Ui.VTxt(body, "logo2", new Vector2(112f, 48f), new Vector2(400f, 30f), sub, 24f, new Color(1f, 1f, 1f, 0.55f), TextAlignmentOptions.TopLeft), Ui.At(0.1f), -30f);
 		}
 
@@ -537,6 +548,7 @@ namespace WJMAXOnline
 				MT_TEAM => "TEAM MATCH",
 				MT_VERSUS => "VERSUS MATCH",
 				MT_LADDER => "LADDER MATCH",
+				MT_PLACE => "PLACEMENT TEST",
 				_ => "FREE MATCH",
 			};
 		}

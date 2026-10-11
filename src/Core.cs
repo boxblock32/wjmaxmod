@@ -41,7 +41,8 @@ namespace WJMAXOnline
 			Battle, // 밴픽 · 라운드 공개 · 최종 결과 (VERSUS, 래더)
 			Ladder, // 래더 매치 화면 (내 티어 · AI 매칭 · 티어표)
 			Result, // 지난 판 결과
-			History // 최근 대전 기록
+			History, // 최근 대전 기록
+			Place // 아카데미 배치고사
 		}
 
 		// 대전 방식
@@ -216,6 +217,10 @@ namespace WJMAXOnline
 				TitleInfo[] infos = (titleManager == null) ? null : (fInfos.GetValue(fTitleInfoMgr.GetValue(titleManager)) as TitleInfo[]);
 				for (int i = 0; infos != null && i < infos.Length; i++)
 				{
+					if (infos[i].gameMode == GAMEMODE.Academy)
+					{
+						infos[i].isLock = false;
+					}
 					if (infos[i].gameMode == GAMEMODE.Online || i == onlineTitleIndex)
 					{
 						infos[i].isLock = false;
@@ -284,6 +289,10 @@ namespace WJMAXOnline
 			{
 				FreeStyleTick();
 			}
+			if (scene == SCENE.Academy)
+			{
+				AcademyTick();
+			}
 			if (scene == SCENE.Game && inMatch)
 			{
 				UpdateGame();
@@ -295,6 +304,7 @@ namespace WJMAXOnline
 			}
 			FixLoadingPanel(scene);
 			LadderTick();
+			PlaceTick();
 			AiTick();
 			BattleTick();
 			MatchTick();
@@ -368,12 +378,16 @@ namespace WJMAXOnline
 				case Scr.History:
 					InputHistory();
 					break;
+				case Scr.Place:
+					InputPlace();
+					break;
 				}
 			}
 		}
 
 		private void OnSceneChanged(SCENE from, SCENE to)
 		{
+			PlaceSceneChanged(from, to);
 			if (from == SCENE.Game && inMatch && !sentFinal)
 			{
 				SendFinal(cleared: false, fc: false);
@@ -384,6 +398,12 @@ namespace WJMAXOnline
 				if (from == SCENE.Title && onlineTitleIndex >= 0 && lastTitleIndex == onlineTitleIndex)
 				{
 					EnterOnline();
+				}
+				else if (placePending)
+				{
+					placePending = false;
+					EnterOnline();
+					EnterPlacement();
 				}
 				else if (online && inMatch)
 				{
