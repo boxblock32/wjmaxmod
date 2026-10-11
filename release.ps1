@@ -21,12 +21,24 @@ $rsa = New-Object Security.Cryptography.RSACryptoServiceProvider
 $rsa.FromXmlString([IO.File]::ReadAllText($key))
 $sig = $rsa.SignHash($sha.ComputeHash($msg), [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
 [IO.File]::WriteAllText("$dir\build.txt", "$b`n" + [Convert]::ToBase64String($sig))
+# 처음 설치용 zip (게임 폴더에 압축 풀고 덮어쓰기). 서명 키·기록·중계 서버는 안 넣음
+$game = Split-Path $mod -Parent
+$zip = "$dir\WJMAX_OnlineMod.zip"
+Remove-Item $zip -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$z = [IO.Compression.ZipFile]::Open($zip, 'Create')
+foreach ($f in 'WJMAX_Data/ScriptingAssemblies.json', 'WJMAX_Data/RuntimeInitializeOnLoads.json', 'WJMAX_Data/Managed/WJMAXOnline.dll',
+        'OnlineMod/WJMAXOnline.dll', 'OnlineMod/install.bat', 'OnlineMod/install.ps1', 'OnlineMod/uninstall.bat', 'OnlineMod/사용법.txt',
+        'OnlineMod/backup/ScriptingAssemblies.json', 'OnlineMod/backup/RuntimeInitializeOnLoads.json') {
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, (Join-Path $game $f), $f)
+}
+$z.Dispose()
 git -C $mod add -A
 git -C $mod commit -q -m "build $b"
 # GitHub 웹에서 고친 것(README 등)이 있으면 먼저 합침
 git -C $mod pull -q --rebase origin main 2>&1 | Out-Host
 git -C $mod push -q origin main 2>&1 | Out-Host
 if ($LASTEXITCODE -ne 0) { 'push failed (릴리스 안 올림)'; exit 1 }
-gh release create "b$b" "$mod\WJMAXOnline.dll" "$dir\build.txt" --repo $repo --target main --title "build $b" --notes "자동 업데이트 빌드 $b"
+gh release create "b$b" "$mod\WJMAXOnline.dll" "$dir\build.txt" $zip --repo $repo --target main --title "build $b" --notes "자동 업데이트 빌드 $b"
 if ($LASTEXITCODE -ne 0) { 'release failed'; exit 1 }
 "build $b 올림. 사람들은 게임을 켜면 받아요."
