@@ -1,7 +1,7 @@
-﻿# 자동 업데이트 올리기: BUILD +1 -> 빌드 -> GitHub(boxblock32/wjmaxonline) 에 커밋·릴리스.
+﻿# 자동 업데이트 올리기: BUILD +1 -> 빌드 -> GitHub(boxblock32/wjmaxmod) 에 커밋·릴리스.
 # 사람들은 게임을 켤 때 새 빌드를 받고, 그다음 실행부터 적용된다.
 $ErrorActionPreference = 'Continue'
-$repo = 'boxblock32/wjmaxonline'
+$repo = 'boxblock32/wjmaxmod'
 $mod = $PSScriptRoot
 $key = "$mod\signkey.xml"
 # 서명 키: 이 PC 에만 있음. 절대 GitHub·배포 zip 에 넣지 말 것. 잃어버리면 새 키로 배포 zip 을 다시 나눠줘야 함

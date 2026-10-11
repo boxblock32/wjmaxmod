@@ -14,7 +14,7 @@ namespace WJMAXOnline
 {
 	public static class Updater
 	{
-		private const string BASE = "https://github.com/boxblock32/wjmaxonline/releases/latest/download/";
+		private const string BASE = "https://github.com/boxblock32/wjmaxmod/releases/latest/download/";
 
 		private const string PUBKEY = "<RSAKeyValue><Modulus>7H+QpysAk52vSYfgQ5rtSLT48dkUeT0Fjawh9hcNUFczSk4ao5kbZVZTiqpnE4UFRf4v9f7ASJzqc0BeRTwvpwhoeQ+WsbekiJKY1Q3a/FgLYy3y5cAMqheT1t0zZCXPTtyZEeirIVDiNxNXz7zhMJc/Jy01Bx03UvJhy9W9K3Mgp9v48dMqps0wiKL45YbtryPGi2LcZN8v5NlQhnuW2EKtej1WrjG7WV1/f5a8/jzCBb2wWT7rC0ApQELG3RAWkXtGp5+Hugt2ZE3vgxKUGMYsdxkTrNbRASHX2WB2I/2T6sJKULjcHg+gifZ0gzbsXahmI5oGwd1B+j0TYxW9MtwerDgLEZqNKJTPK0mGviEvqAubQU/46PoUeehZJpAdPO+g4jGBPePedB1RSv0KA+7GLadqPlbL78WttBMdGKDjDeKycxwoGtRfkKhCm6acA+2PFeMA9OqJukGAbYGqopkpwKh7Z8dBubp3eFS8mpqAkMFHK8OjuudBRLnRADy9</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
