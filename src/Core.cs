@@ -19,7 +19,7 @@ namespace WJMAXOnline
 		private const string VERSION = "10";
 
 		// 자동 업데이트 빌드 번호 (release.bat 이 올림). VERSION 은 통신 형식이 바뀔 때만 올린다
-		private const int BUILD = 3;
+		private const int BUILD = 4;
 
 		private const BindingFlags F = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
