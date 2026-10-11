@@ -3,6 +3,9 @@
 $ErrorActionPreference = 'Continue'
 $repo = 'boxblock32/wjmaxonline'
 $mod = $PSScriptRoot
+$key = "$mod\signkey.xml"
+# 서명 키: 이 PC 에만 있음. 절대 GitHub·배포 zip 에 넣지 말 것. 잃어버리면 새 키로 배포 zip 을 다시 나눠줘야 함
+if (-not (Test-Path $key)) { 'signkey.xml 이 없어요. 업데이트를 올릴 수 없어요.'; exit 1 }
 $core = "$mod\src\Core.cs"
 $t = [IO.File]::ReadAllText($core)
 $b = [int][regex]::Match($t, 'const int BUILD = (\d+);').Groups[1].Value + 1
@@ -11,7 +14,13 @@ $b = [int][regex]::Match($t, 'const int BUILD = (\d+);').Groups[1].Value + 1
 if (-not $?) { 'build failed'; exit 1 }
 $dir = Join-Path $env:TEMP 'wjmax_release'
 New-Item -ItemType Directory -Force $dir | Out-Null
-[IO.File]::WriteAllText("$dir\build.txt", "$b")
+# build.txt = 빌드 번호 + "WJMAXOnline|빌드|DLL SHA256" 의 RSA 서명 (모드가 받기 전에 확인)
+$sha = [Security.Cryptography.SHA256]::Create()
+$msg = [Text.Encoding]::ASCII.GetBytes("WJMAXOnline|$b|" + [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes("$mod\WJMAXOnline.dll"))).Replace('-', ''))
+$rsa = New-Object Security.Cryptography.RSACryptoServiceProvider
+$rsa.FromXmlString([IO.File]::ReadAllText($key))
+$sig = $rsa.SignHash($sha.ComputeHash($msg), [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+[IO.File]::WriteAllText("$dir\build.txt", "$b`n" + [Convert]::ToBase64String($sig))
 git -C $mod add -A
 git -C $mod commit -q -m "build $b"
 git -C $mod push -q origin main 2>&1 | Out-Host
