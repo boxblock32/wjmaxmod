@@ -1,0 +1,12 @@
+# 소스와 스크립트만 올림 (DLL·기록·중계 서버·개발 도구는 안 올림)
+*
+!.gitignore
+!src/
+!src/*.cs
+!build.ps1
+!release.ps1
+!release.bat
+!install.bat
+!install.ps1
+!uninstall.bat
+!사용법.txt
